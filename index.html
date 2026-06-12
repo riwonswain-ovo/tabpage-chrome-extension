@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TabPage</title>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="header-left">
+      <h1 id="greetingTxt"></h1>
+      <div class="date" id="dateTxt"></div>
+      <div class="subtitle" id="subTxt"></div>
+    </div>
+    <div class="header-right">
+      <input class="search" id="searchInput" type="text" placeholder="搜索收藏...">
+    </div>
+  </header>
+
+  <!-- Tab Bar -->
+  <nav class="tab-bar">
+    <button class="tab active" data-view="bookmarks">收藏</button>
+    <button class="tab" data-view="tabs">标签</button>
+  </nav>
+
+  <!-- Bookmarks View -->
+  <section id="view-bookmarks">
+    <div class="section-header">
+      <h2>我的收藏</h2>
+      <div class="section-line"></div>
+      <div class="section-count" id="bmCount"></div>
+    </div>
+    <div class="card-grid" id="bookmarkGrid"></div>
+    <div style="text-align:center;">
+      <button class="act-btn" id="btnNewCat" style="font-size:12px;">新建分类</button>
+    </div>
+  </section>
+
+  <!-- Tabs View -->
+  <section id="view-tabs" style="display:none;">
+    <div class="section-header">
+      <h2>打开的标签</h2>
+      <div class="section-line"></div>
+      <div class="section-count" id="tabsDomainCount"></div>
+    </div>
+    <div class="dashboard-cols">
+      <div class="dashboard-main">
+        <div class="card-grid" id="tabsGrid"></div>
+      </div>
+      <div class="dashboard-side" id="deferredCol" style="display:none;">
+        <div class="section-header">
+          <h2>待读清单</h2>
+          <div class="section-line"></div>
+          <div class="section-count" id="deferredCount"></div>
+        </div>
+        <div id="deferredList"></div>
+        <div class="def-empty" id="deferredEmpty" style="display:none;">还没有保存的。活在当下。</div>
+        <div class="archive" id="archiveWrap" style="display:none;">
+          <button class="archive-toggle" id="archiveToggle">
+            <svg class="archive-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+            归档 <span class="archive-count" id="archiveCount"></span>
+          </button>
+          <div class="archive-body" id="archiveBody" style="display:none;">
+            <div id="archiveList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div>
+      <div class="footer-stat" id="footerCount">—</div>
+      <div class="footer-label">打开标签数</div>
+    </div>
+    <div class="footer-credit">
+      <a href="#">TabPage</a> · Celia
+    </div>
+  </footer>
+
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="modalBm">
+  <div class="modal">
+    <h3 id="modalBmTitle">新建书签</h3>
+    <label>名称</label>
+    <input type="text" id="bmName" placeholder="书签名称">
+    <label>网址</label>
+    <input type="text" id="bmUrl" placeholder="https://...">
+    <input type="hidden" id="bmCatId">
+    <div class="actions">
+      <button class="cancel" id="btnCancelBm">取消</button>
+      <button class="primary" id="btnSaveBm">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalCat">
+  <div class="modal">
+    <h3>新建分类</h3>
+    <label>名称</label>
+    <input type="text" id="catName" placeholder="分类名称">
+    <div class="actions">
+      <button class="cancel" id="btnCancelCat">取消</button>
+      <button class="primary" id="btnSaveCat">创建</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalTabBm">
+  <div class="modal">
+    <h3>添加到收藏</h3>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;" id="tabBmInfo"></p>
+    <label>选择分类</label>
+    <select id="tabBmCat"></select>
+    <div class="actions">
+      <button class="cancel" id="btnCancelTabBm">取消</button>
+      <button class="primary" id="btnSaveTabBm">添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+  <span id="toastMsg"></span>
+</div>
+
+<script src="storage.js"></script>
+<script src="greeting.js"></script>
+<script src="bookmarks.js"></script>
+<script src="tabs.js"></script>
+<script src="deferred.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
