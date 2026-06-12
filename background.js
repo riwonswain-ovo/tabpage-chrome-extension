@@ -45,14 +45,12 @@ chrome.bookmarks.onCreated.addListener(async (id, bookmark) => {
   _lastStarTime = now;
 
   try {
-    // Store pending star info
+    // Store pending star info for the popup panel
     const pending = { url: bookmark.url, title: bookmark.title, time: now };
     await chrome.storage.local.set({ _pendingStar: pending });
 
-    // Delete the native bookmark
-    await chrome.bookmarks.remove(id);
-
-    // Open a small popup panel ON TOP of the current page
+    // Open a small popup panel on top of the current page
+    // Note: the native bookmark stays in Chrome's bookmark bar
     await chrome.windows.create({
       url: `chrome-extension://${chrome.runtime.id}/star-panel.html`,
       type: 'popup',
@@ -60,7 +58,7 @@ chrome.bookmarks.onCreated.addListener(async (id, bookmark) => {
       height: 280
     });
   } catch {
-    // Silent fail — the native bookmark stays, star panel won't show
+    // Silent fail
   }
 });
 

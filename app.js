@@ -209,6 +209,47 @@ document.getElementById('btnRestoreTab').addEventListener('click', async () => {
   }
 });
 
+// ── Export / Import data ──
+document.getElementById('btnExport').addEventListener('click', async () => {
+  const data = await loadData();
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `tabpage-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('数据已导出', false);
+});
+
+document.getElementById('btnImport').addEventListener('click', () => {
+  document.getElementById('importFile').click();
+});
+
+document.getElementById('importFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const imported = JSON.parse(text);
+    if (!imported.bookmarks || !Array.isArray(imported.bookmarks.categories)) {
+      throw new Error('无效的备份文件');
+    }
+    // Write to local and sync
+    const data = normalize(imported);
+    await chrome.storage.local.set({ [STORAGE_KEY]: data });
+    try {
+      await writeSyncChunked(data);
+    } catch { /* sync write optional */ }
+    showToast('数据已导入，即将刷新...', false);
+    setTimeout(() => location.reload(), 800);
+  } catch (err) {
+    showToast('导入失败：' + err.message, false);
+  }
+  e.target.value = '';
+});
+
 // ── Modal helpers ──
 async function showAddBookmark(catId) {
   const { categories } = await getBookmarks();
