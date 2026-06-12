@@ -45,24 +45,20 @@ chrome.bookmarks.onCreated.addListener(async (id, bookmark) => {
   _lastStarTime = now;
 
   try {
-    // Store pending star info for the new tab page to pick up
+    // Store pending star info
     const pending = { url: bookmark.url, title: bookmark.title, time: now };
     await chrome.storage.local.set({ _pendingStar: pending });
 
     // Delete the native bookmark
     await chrome.bookmarks.remove(id);
 
-    // Open the extension page so the user sees the categorization panel immediately
-    const extUrl = `chrome-extension://${chrome.runtime.id}/index.html`;
-    const existing = await chrome.tabs.query({ url: extUrl });
-    if (existing && existing.length > 0) {
-      // Focus existing extension tab
-      await chrome.tabs.update(existing[0].id, { active: true });
-      await chrome.windows.update(existing[0].windowId, { focused: true });
-    } else {
-      // Create a new extension tab
-      await chrome.tabs.create({ url: extUrl });
-    }
+    // Open a small popup panel ON TOP of the current page
+    await chrome.windows.create({
+      url: `chrome-extension://${chrome.runtime.id}/star-panel.html`,
+      type: 'popup',
+      width: 380,
+      height: 280
+    });
   } catch {
     // Silent fail — the native bookmark stays, star panel won't show
   }

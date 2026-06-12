@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>添加到收藏</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 13px; }
+  body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 20px 24px;
+    background: #faf8f5;
+    color: #2c2c2c;
+    min-width: 320px;
+  }
+  h3 { font-family: 'Newsreader', serif; font-size: 16px; font-weight: 500; margin-bottom: 6px; }
+  .info {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 320px;
+  }
+  label { display: block; font-size: 11px; font-weight: 500; color: #666; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+  select {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid #d4c5b2;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    background: #fff;
+    color: #2c2c2c;
+    margin-bottom: 18px;
+    outline: none;
+  }
+  select:focus { border-color: #c8713a; }
+  .actions { display: flex; gap: 10px; justify-content: flex-end; }
+  button {
+    padding: 7px 18px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid #d4c5b2;
+    background: #fff;
+    color: #555;
+  }
+  button.primary {
+    background: #c8713a;
+    color: #fff;
+    border-color: #c8713a;
+  }
+  button.primary:hover { background: #b35a2e; }
+  button:hover { background: #f0ebe0; }
+</style>
+</head>
+<body>
+<h3>⭐ 添加到收藏</h3>
+<p class="info" id="info"></p>
+<label>选择分类</label>
+<select id="catSelect"></select>
+<div class="actions">
+  <button id="btnCancel">取消</button>
+  <button class="primary" id="btnSave">添加</button>
+</div>
+<script src="storage.js"></script>
+<script src="star-panel.js"></script>
+</body>
+</html>

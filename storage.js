@@ -66,19 +66,28 @@ async function writeSyncChunked(data) {
 
 // ── Main load / save ────────────────────────────────────────────────
 
+let _lastSyncTime = 0;
+const SYNC_COOLDOWN = 10000; // 10s between background syncs
+
 async function loadData() {
   // 1. Local first (fast, always current)
   const { [STORAGE_KEY]: localData } = await chrome.storage.local.get(STORAGE_KEY);
   if (localData) {
     const data = normalize(localData);
-    // Keep sync copy up to date in background
-    syncToChunkedBg(data);
+    // Throttled background sync — don't slow down reads
+    const now = Date.now();
+    if (now - _lastSyncTime > SYNC_COOLDOWN) {
+      _lastSyncTime = now;
+      writeSyncChunked(data).catch(e => console.warn('[TabPage] bg sync:', e.message));
+    }
     return data;
   }
 
   // 2. Local empty — reinstall. Try chunked sync first
+  console.log('[TabPage] local empty, trying sync restore...');
   const chunked = await readSyncChunked();
   if (chunked) {
+    console.log('[TabPage] restored from chunked sync, keys:', chunked.bookmarks?.categories?.length, 'categories');
     const data = normalize(chunked);
     await chrome.storage.local.set({ [STORAGE_KEY]: data });
     return data;
@@ -87,15 +96,16 @@ async function loadData() {
   // 3. Fallback: old single-key sync (migration from before chunking)
   const { [STORAGE_KEY]: syncData } = await chrome.storage.sync.get(STORAGE_KEY);
   if (syncData) {
+    console.log('[TabPage] restored from legacy sync key');
     const data = normalize(syncData);
     await chrome.storage.local.set({ [STORAGE_KEY]: data });
     // Migrate to chunked format
-    syncToChunkedBg(data);
-    // Remove old single key
+    writeSyncChunked(data).catch(e => console.warn('[TabPage] migrate to chunked:', e.message));
     chrome.storage.sync.remove(STORAGE_KEY).catch(() => {});
     return data;
   }
 
+  console.log('[TabPage] no data found, using defaults');
   return JSON.parse(JSON.stringify(DEFAULT_DATA));
 }
 
@@ -106,17 +116,15 @@ async function saveData(updateFn) {
   // Local: full data under single key
   await chrome.storage.local.set({ [STORAGE_KEY]: data });
 
-  // Sync: chunked to stay under 8KB per-item limit
-  writeSyncChunked(data).catch(() => {
-    // Sync may fail (quota, etc.). Local still works.
-  });
+  // Sync: chunked — await to catch errors, but don't block on failure
+  try {
+    await writeSyncChunked(data);
+    console.log('[TabPage] synced to cloud,', JSON.stringify(data).length, 'bytes');
+  } catch (e) {
+    console.warn('[TabPage] sync write failed:', e.message, '(local data safe)');
+  }
 
   return data;
-}
-
-// Best-effort background sync — don't block the caller
-function syncToChunkedBg(data) {
-  writeSyncChunked(data).catch(() => {});
 }
 
 // ─── Bookmarks ──────────────────────────────────────────────────────
