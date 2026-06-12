@@ -374,25 +374,35 @@ if (chrome && chrome.tabs) {
 // ─── Restore last closed tab ────────────────────────────────────────
 
 async function restoreLastClosedTab() {
-  // Try direct restore first
+  // Save current tab to switch back after restore
+  const currentTabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const currentTabId = currentTabs[0]?.id;
+
+  let result;
   try {
-    return await chrome.sessions.restore();
+    result = await chrome.sessions.restore();
   } catch (_) {
     // Fallback: find by recently closed list
+    const sessions = await chrome.sessions.getRecentlyClosed();
+    if (!sessions || sessions.length === 0) {
+      throw new Error('No recently closed tabs');
+    }
+    const session = sessions[0];
+    if (session.tab) {
+      result = await chrome.sessions.restore(session.tab.sessionId);
+    } else if (session.window) {
+      result = await chrome.sessions.restore(session.window.sessionId);
+    } else {
+      throw new Error('No restorable session');
+    }
   }
-  const sessions = await chrome.sessions.getRecentlyClosed();
-  if (!sessions || sessions.length === 0) {
-    throw new Error('No recently closed tabs');
+
+  // Switch back to the extension page instead of jumping to restored tab
+  if (currentTabId) {
+    try { await chrome.tabs.update(currentTabId, { active: true }); } catch { /* ignore */ }
   }
-  const session = sessions[0];
-  if (session.tab) {
-    return chrome.sessions.restore(session.tab.sessionId);
-  }
-  // Could be a window session
-  if (session.window) {
-    return chrome.sessions.restore(session.window.sessionId);
-  }
-  throw new Error('No restorable session');
+
+  return result;
 }
 
 // ─── Focus tab ──────────────────────────────────────────────────────

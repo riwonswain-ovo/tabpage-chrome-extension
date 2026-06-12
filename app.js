@@ -312,6 +312,13 @@ function showToast(msg, showUndo = false) {
 
 // ─── Star interception ──────────────────────────────────────────────
 
+// Listen for star interception from background.js (real-time when new tab is open)
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes._pendingStar && changes._pendingStar.newValue) {
+    checkPendingStar();
+  }
+});
+
 async function checkPendingStar() {
   const { _pendingStar } = await chrome.storage.local.get('_pendingStar');
   if (!_pendingStar) return;

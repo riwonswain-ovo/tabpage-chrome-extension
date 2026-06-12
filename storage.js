@@ -10,10 +10,7 @@ const DEFAULT_DATA = {
   preferences: { lastActiveView: 'bookmarks' }
 };
 
-async function loadData() {
-  const { [STORAGE_KEY]: data } = await chrome.storage.local.get(STORAGE_KEY);
-  if (!data) return JSON.parse(JSON.stringify(DEFAULT_DATA));
-  // Ensure all keys exist (migration-safe)
+function normalize(data) {
   const merged = { ...DEFAULT_DATA, ...data };
   merged.bookmarks = { categories: [], ...merged.bookmarks };
   merged.deferred = merged.deferred || [];
@@ -21,10 +18,46 @@ async function loadData() {
   return merged;
 }
 
+async function loadData() {
+  const [localResult, syncResult] = await Promise.all([
+    chrome.storage.local.get(STORAGE_KEY),
+    chrome.storage.sync.get(STORAGE_KEY)
+  ]);
+
+  const localData = localResult[STORAGE_KEY];
+  const syncData = syncResult[STORAGE_KEY];
+
+  // Local is the primary source (fast, always current)
+  if (localData) {
+    const data = normalize(localData);
+    // Keep sync copy up to date (best-effort, may fail on quota)
+    if (!syncData || JSON.stringify(localData) !== JSON.stringify(syncData)) {
+      chrome.storage.sync.set({ [STORAGE_KEY]: data }).catch(() => {});
+    }
+    return data;
+  }
+
+  // Local empty — reinstall scenario, restore from sync (Google account)
+  if (syncData) {
+    const data = normalize(syncData);
+    // Restore local cache
+    await chrome.storage.local.set({ [STORAGE_KEY]: data });
+    return data;
+  }
+
+  return JSON.parse(JSON.stringify(DEFAULT_DATA));
+}
+
 async function saveData(updateFn) {
   const data = await loadData();
   updateFn(data);
-  await chrome.storage.local.set({ [STORAGE_KEY]: data });
+  // Write to both: local for speed, sync for cross-device + reinstall survival
+  await Promise.all([
+    chrome.storage.local.set({ [STORAGE_KEY]: data }),
+    chrome.storage.sync.set({ [STORAGE_KEY]: data }).catch(() => {
+      // Sync may fail if quota exceeded (>100KB). Local still works.
+    })
+  ]);
   return data;
 }
 
