@@ -43,9 +43,18 @@ function getDateDisplay() {
   });
 }
 
-function updateHeader(userName = 'Celia') {
+async function updateHeader() {
+  const { userName } = await getPrefs();
   const hour = new Date().getHours();
-  document.getElementById('greetingTxt').textContent = getGreeting() + '，' + userName + '。';
+  const name = userName || '';
+  document.getElementById('greetingTxt').textContent = name
+    ? getGreeting() + '，' + name + '。'
+    : getGreeting() + '。';
   document.getElementById('dateTxt').textContent = getDateDisplay();
   document.getElementById('subTxt').textContent = getRandomSubtitle(hour);
+}
+
+async function setUserName(name) {
+  await setPref('userName', name);
+  await updateHeader();
 }

@@ -2,8 +2,6 @@
 
 // ─── App controller ─────────────────────────────────────────────────
 
-const USER_NAME = 'Celia';
-
 // Global favicon error handler (capture phase; replaces inline onerror to satisfy CSP)
 document.addEventListener('error', function(e) {
   if (e.target.tagName === 'IMG' && e.target.classList.contains('chip-fav')) {
@@ -14,7 +12,7 @@ document.addEventListener('error', function(e) {
 // ─── Bootstrap ──────────────────────────────────────────────────────
 
 (async function init() {
-  updateHeader(USER_NAME);
+  await updateHeader();
 
   // Restore last active view
   const { lastActiveView } = await getPrefs();
@@ -141,6 +139,15 @@ document.querySelector('.tab-bar').addEventListener('click', (e) => {
 
 // ── Archive toggle ──
 document.getElementById('archiveToggle').addEventListener('click', toggleArchive);
+
+// ── Greeting click to edit name ──
+document.getElementById('greetingTxt').addEventListener('click', async () => {
+  const { userName } = await getPrefs();
+  const name = prompt('你的名字？', userName || '');
+  if (name !== null) {
+    await setUserName(name.trim());
+  }
+});
 
 // ── Search ──
 document.getElementById('searchInput').addEventListener('input', function () {
