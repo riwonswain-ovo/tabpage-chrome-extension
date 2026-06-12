@@ -116,7 +116,7 @@ let pendingTabTitle = '';
 async function showAddToBookmarks(url, title) {
   const { categories } = await getBookmarks();
   if (categories.length === 0) {
-    showToast('请先在收藏视图创建至少一个分类');
+    showToast('请先在收藏视图创建至少一个分类', false);
     return;
   }
 
@@ -124,8 +124,19 @@ async function showAddToBookmarks(url, title) {
   pendingTabTitle = title;
 
   document.getElementById('tabBmInfo').textContent = title;
+
+  // Smart suggestion
+  const suggestEl = document.getElementById('tabBmSuggest');
+  const suggestion = suggestCategory(url, title, categories);
+  if (suggestion) {
+    suggestEl.textContent = `建议分类：${suggestion.catName}（基于已有类似书签）`;
+    suggestEl.style.display = 'block';
+  } else {
+    suggestEl.style.display = 'none';
+  }
+
   document.getElementById('tabBmCat').innerHTML = categories.map(c =>
-    `<option value="${c.id}">${esc(c.name)}</option>`
+    `<option value="${c.id}"${suggestion && c.id === suggestion.catId ? ' selected' : ''}>${esc(c.name)}</option>`
   ).join('');
   document.getElementById('modalTabBm').classList.add('show');
 }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TabPage",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "你的新标签页 — 收藏整理 + 标签管理，一切从这里开始。",
   "permissions": ["tabs", "storage"],
   "chrome_url_overrides": { "newtab": "index.html" },

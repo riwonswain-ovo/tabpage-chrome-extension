@@ -345,6 +345,23 @@ function doConfetti(x, y, count) {
 
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 
+// ─── Auto-refresh on tab changes ────────────────────────────────────
+
+let _tabsRenderTimer;
+function scheduleTabsRender() {
+  clearTimeout(_tabsRenderTimer);
+  _tabsRenderTimer = setTimeout(renderTabs, 300);
+}
+
+// Listen for tab events to auto-refresh the tabs view
+if (chrome && chrome.tabs) {
+  chrome.tabs.onCreated.addListener(() => scheduleTabsRender());
+  chrome.tabs.onRemoved.addListener(() => scheduleTabsRender());
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (changeInfo.status === 'complete') scheduleTabsRender();
+  });
+}
+
 // ─── Focus tab ──────────────────────────────────────────────────────
 
 async function focusTab(url) {

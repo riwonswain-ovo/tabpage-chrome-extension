@@ -100,15 +100,25 @@ async function addBookmarkAction(catId) {
 }
 
 async function deleteBookmarkAction(catId, bmId) {
+  await saveDeleteSnapshot();
+  // Find bookmark name for toast
+  const { categories } = await getBookmarks();
+  const cat = categories.find(c => c.id === catId);
+  const bm = cat ? cat.items.find(i => i.id === bmId) : null;
+  const bmName = bm ? bm.name : '书签';
   await deleteBookmark(catId, bmId);
   await renderBookmarks(getSearchValue());
-  showToast('书签已删除');
+  showToast(`「${bmName}」已删除`, true);
 }
 
 async function deleteCategoryAction(catId) {
+  await saveDeleteSnapshot();
+  const { categories } = await getBookmarks();
+  const cat = categories.find(c => c.id === catId);
+  const catName = cat ? cat.name : '分类';
   await deleteCategory(catId);
   await renderBookmarks(getSearchValue());
-  showToast('分类已删除');
+  showToast(`「${catName}」已删除`, true);
 }
 
 async function addCategoryAction(name) {
@@ -132,6 +142,80 @@ function getSearchValue() {
   return s ? s.value : '';
 }
 
+// ─── Smart categorization ───────────────────────────────────────────
+
+/**
+ * Suggest the best category for a new bookmark based on existing data.
+ * Returns { catId, catName, score } or null if no suggestion.
+ */
+function suggestCategory(url, name, categories) {
+  if (!categories || categories.length === 0) return null;
+
+  const targetHost = host(url);
+  const nameTokens = tokenize(name);
+  const targetDomainBase = targetHost.replace(/^www\./, '');
+
+  let best = null;
+  let bestScore = 0;
+
+  for (const cat of categories) {
+    let score = 0;
+
+    // Rule 1: exact domain match (weight 100)
+    for (const item of cat.items) {
+      if (host(item.url) === targetHost) {
+        score += 100;
+        break; // one domain match is enough
+      }
+    }
+
+    // Rule 2: keyword overlap with bookmark names (weight 10 per token)
+    for (const item of cat.items) {
+      const itemTokens = tokenize(item.name);
+      for (const nt of nameTokens) {
+        if (nt.length < 2) continue;
+        for (const it of itemTokens) {
+          if (it.length < 2) continue;
+          if (nt === it || it.includes(nt) || nt.includes(it)) {
+            score += 10;
+          }
+        }
+      }
+    }
+
+    // Rule 3: category name match (weight 20)
+    const catTokens = tokenize(cat.name);
+    for (const ct of catTokens) {
+      if (ct.length < 2) continue;
+      const ctLower = ct.toLowerCase();
+      if (targetDomainBase.includes(ctLower) || name.toLowerCase().includes(ctLower)) {
+        score += 20;
+      }
+      for (const nt of nameTokens) {
+        if (nt.length < 2) continue;
+        if (nt === ct || ct.includes(nt) || nt.includes(ct)) {
+          score += 20;
+        }
+      }
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = { catId: cat.id, catName: cat.name, score };
+    }
+  }
+
+  return bestScore > 0 ? best : null;
+}
+
+function tokenize(str) {
+  if (!str) return [];
+  return str.toLowerCase()
+    .replace(/[^\w一-鿿\s-]/g, ' ')
+    .split(/[\s-]+/)
+    .filter(Boolean);
+}
+
 // ─── Drag-and-drop ──────────────────────────────────────────────────
 
 let dragState = { type: null, catId: null, bmId: null, el: null };
@@ -144,18 +228,19 @@ function initDragAndDrop() {
     const card = e.target.closest('.drag-card');
     const chip = e.target.closest('.drag-chip');
 
-    if (card && !e.target.closest('.chip-actions') && !e.target.closest('button')) {
-      // Dragging a category card
-      dragState = { type: 'category', catId: card.dataset.catId, bmId: null, el: card };
-      card.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', card.dataset.catId);
-    } else if (chip && !e.target.closest('.chip-actions') && !e.target.closest('button')) {
+    // Check chip first — chips are inside cards, so chip must take priority
+    if (chip && !e.target.closest('.chip-actions') && !e.target.closest('button')) {
       // Dragging a bookmark chip
       dragState = { type: 'bookmark', catId: chip.dataset.catId, bmId: chip.dataset.bmId, el: chip };
       chip.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', chip.dataset.bmId);
+    } else if (card && !e.target.closest('.chip-actions') && !e.target.closest('button')) {
+      // Dragging a category card
+      dragState = { type: 'category', catId: card.dataset.catId, bmId: null, el: card };
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', card.dataset.catId);
     } else {
       e.preventDefault();
     }
@@ -193,6 +278,13 @@ function initDragAndDrop() {
         }
       } else if (chipList) {
         chipList.closest('.drag-card')?.classList.add('drag-over');
+      } else {
+        // Fallback: cursor between chips or on card edge — find chip-list via card
+        const card = e.target.closest('.drag-card');
+        if (card) {
+          const innerList = card.querySelector('.chip-list');
+          if (innerList) card.classList.add('drag-over');
+        }
       }
     }
   });
@@ -225,7 +317,16 @@ function initDragAndDrop() {
     } else if (dragState.type === 'bookmark') {
       const chip = e.target.closest('.drag-chip');
       const chipList = e.target.closest('.chip-list');
-      const targetCatId = chip ? chip.dataset.catId : (chipList ? chipList.dataset.catId : null);
+      let targetCatId = chip ? chip.dataset.catId : (chipList ? chipList.dataset.catId : null);
+
+      // Fallback: find chip-list inside the card when cursor is between chips
+      if (!targetCatId) {
+        const card = e.target.closest('.drag-card');
+        if (card) {
+          const innerList = card.querySelector('.chip-list');
+          targetCatId = innerList ? innerList.dataset.catId : null;
+        }
+      }
       if (!targetCatId) { dragState = {}; return; }
 
       const { categories } = await getBookmarks();
@@ -239,11 +340,18 @@ function initDragAndDrop() {
 
       if (chip && chip !== dragState.el) {
         let toIdx = dstCat.items.findIndex(i => i.id === chip.dataset.bmId);
-        const rect = chip.getBoundingClientRect();
-        if (e.clientY > rect.top + rect.height / 2) toIdx++;
-        if (toIdx === -1) toIdx = dstCat.items.length;
-        dstCat.items.splice(toIdx, 0, moved);
+        if (toIdx !== -1) {
+          const rect = chip.getBoundingClientRect();
+          if (e.clientY > rect.top + rect.height / 2) toIdx++;
+          dstCat.items.splice(toIdx, 0, moved);
+        } else {
+          dstCat.items.push(moved);
+        }
+      } else if (srcCat.id === dstCat.id) {
+        // Same chip, same category — restore to original position (no-op)
+        srcCat.items.splice(srcIdx, 0, moved);
       } else {
+        // Different category, no specific target chip — append to end
         dstCat.items.push(moved);
       }
 
@@ -251,7 +359,7 @@ function initDragAndDrop() {
       await renderBookmarks(getSearchValue());
       if (srcCat.id !== dstCat.id) {
         showToast(`书签已移动到「${esc(dstCat.name)}」`);
-      } else {
+      } else if (chip !== dragState.el) {
         showToast('书签已重新排序');
       }
     }

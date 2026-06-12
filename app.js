@@ -168,7 +168,9 @@ document.getElementById('btnCancelBm').addEventListener('click', closeModalBm);
 document.getElementById('btnSaveBm').addEventListener('click', async () => {
   const name = document.getElementById('bmName').value;
   const url = document.getElementById('bmUrl').value;
-  const catId = document.getElementById('bmCatId').value;
+  const catSelect = document.getElementById('bmCatSelect');
+  const catId = catSelect.value;
+  if (!catId) return;
   await saveBookmarkAction(catId, name, url);
   closeModalBm();
 });
@@ -187,34 +189,90 @@ document.getElementById('btnCancelTabBm').addEventListener('click', () => {
 });
 document.getElementById('btnSaveTabBm').addEventListener('click', saveTabToBookmarkAction);
 
+// ── Toast undo button ──
+document.getElementById('toastUndo').addEventListener('click', undoLastDelete);
+
 // ── Modal helpers ──
-function showAddBookmark(catId) {
+async function showAddBookmark(catId) {
+  const { categories } = await getBookmarks();
+  const catSelect = document.getElementById('bmCatSelect');
+  const suggestEl = document.getElementById('bmSuggest');
+
+  catSelect.innerHTML = categories.map(c =>
+    `<option value="${c.id}">${esc(c.name)}</option>`
+  ).join('');
+
+  // Pre-select and show suggestion if catId was passed
+  if (catId) {
+    catSelect.value = catId;
+    suggestEl.style.display = 'none';
+  } else {
+    // No pre-selected category — show first one, with suggestion hint if available
+    suggestEl.style.display = 'none';
+    if (categories.length > 0) {
+      catSelect.value = categories[0].id;
+    }
+  }
+
   document.getElementById('modalBmTitle').textContent = '新建书签';
   document.getElementById('bmName').value = '';
   document.getElementById('bmUrl').value = '';
-  document.getElementById('bmCatId').value = catId;
   document.getElementById('modalBm').classList.add('show');
   document.getElementById('bmName').focus();
 }
+
 function showAddCategory() {
   document.getElementById('catName').value = '';
   document.getElementById('modalCat').classList.add('show');
   document.getElementById('catName').focus();
 }
+
 function closeModalBm() { document.getElementById('modalBm').classList.remove('show'); }
 function closeModalCat() { document.getElementById('modalCat').classList.remove('show'); }
 
-// ── Toast ──
+// ─── Delete undo management ─────────────────────────────────────────
+
+let _lastDeleteSnapshot = null;
+let _undoTimer = null;
+
+async function saveDeleteSnapshot() {
+  const { categories } = await getBookmarks();
+  _lastDeleteSnapshot = JSON.parse(JSON.stringify(categories));
+  // Clear old timer, set new 5s expiry
+  clearTimeout(_undoTimer);
+  _undoTimer = setTimeout(() => { _lastDeleteSnapshot = null; }, 5000);
+}
+
+async function undoLastDelete() {
+  if (!_lastDeleteSnapshot) return;
+  await saveBookmarks({ categories: _lastDeleteSnapshot });
+  await renderBookmarks(getSearchValue ? getSearchValue() : '');
+  _lastDeleteSnapshot = null;
+  clearTimeout(_undoTimer);
+  showToast('已恢复', false);
+}
+
+// ─── Toast ──────────────────────────────────────────────────────────
+
 let _toastTimer;
-function showToast(msg) {
+function showToast(msg, showUndo = false) {
   const el = document.getElementById('toast');
   document.getElementById('toastMsg').textContent = msg;
+
+  const undoBtn = document.getElementById('toastUndo');
+  if (showUndo) {
+    undoBtn.style.display = '';
+  } else {
+    undoBtn.style.display = 'none';
+  }
+
   el.classList.add('show');
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-// ── Keyboard shortcuts ──
+// ─── Keyboard shortcuts ─────────────────────────────────────────────
+
 document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === '1') { e.preventDefault(); switchView('bookmarks'); }
   if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); switchView('tabs'); }
