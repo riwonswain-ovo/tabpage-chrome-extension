@@ -3,7 +3,7 @@
   "name": "TabPage",
   "version": "1.2.0",
   "description": "你的新标签页 — 收藏整理 + 标签管理，一切从这里开始。",
-  "permissions": ["tabs", "storage", "sessions", "bookmarks"],
+  "permissions": ["tabs", "storage", "sessions"],
   "chrome_url_overrides": { "newtab": "index.html" },
   "background": { "service_worker": "background.js" },
   "action": {

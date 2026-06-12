@@ -31,37 +31,6 @@ async function updateBadge() {
   }
 }
 
-// ─── Star bookmark interception ──────────────────────────────────────
-
-let _lastStarTime = 0;
-
-chrome.bookmarks.onCreated.addListener(async (id, bookmark) => {
-  // Skip folders and bookmark bar items
-  if (!bookmark.url) return;
-
-  // 500ms debounce
-  const now = Date.now();
-  if (now - _lastStarTime < 500) return;
-  _lastStarTime = now;
-
-  try {
-    // Store pending star info for the popup panel
-    const pending = { url: bookmark.url, title: bookmark.title, time: now };
-    await chrome.storage.local.set({ _pendingStar: pending });
-
-    // Open a small popup panel on top of the current page
-    // Note: the native bookmark stays in Chrome's bookmark bar
-    await chrome.windows.create({
-      url: `chrome-extension://${chrome.runtime.id}/star-panel.html`,
-      type: 'popup',
-      width: 380,
-      height: 280
-    });
-  } catch {
-    // Silent fail
-  }
-});
-
 // ─── Event listeners ─────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(() => updateBadge());

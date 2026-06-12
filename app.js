@@ -25,9 +25,6 @@ document.addEventListener('error', function(e) {
 
   // Init drag-and-drop
   initDragAndDrop();
-
-  // Check for pending star bookmark interception
-  await checkPendingStar();
 })();
 
 // ─── View switching ─────────────────────────────────────────────────
@@ -209,46 +206,6 @@ document.getElementById('btnRestoreTab').addEventListener('click', async () => {
   }
 });
 
-// ── Export / Import data ──
-document.getElementById('btnExport').addEventListener('click', async () => {
-  const data = await loadData();
-  const json = JSON.stringify(data, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `tabpage-backup-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('数据已导出', false);
-});
-
-document.getElementById('btnImport').addEventListener('click', () => {
-  document.getElementById('importFile').click();
-});
-
-document.getElementById('importFile').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  try {
-    const text = await file.text();
-    const imported = JSON.parse(text);
-    if (!imported.bookmarks || !Array.isArray(imported.bookmarks.categories)) {
-      throw new Error('无效的备份文件');
-    }
-    // Write to local and sync
-    const data = normalize(imported);
-    await chrome.storage.local.set({ [STORAGE_KEY]: data });
-    try {
-      await writeSyncChunked(data);
-    } catch { /* sync write optional */ }
-    showToast('数据已导入，即将刷新...', false);
-    setTimeout(() => location.reload(), 800);
-  } catch (err) {
-    showToast('导入失败：' + err.message, false);
-  }
-  e.target.value = '';
-});
 
 // ── Modal helpers ──
 async function showAddBookmark(catId) {
@@ -349,29 +306,6 @@ function showToast(msg, showUndo = false) {
   el.classList.add('show');
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
-}
-
-// ─── Star interception ──────────────────────────────────────────────
-
-// Listen for star interception from background.js (real-time when new tab is open)
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === 'local' && changes._pendingStar && changes._pendingStar.newValue) {
-    checkPendingStar();
-  }
-});
-
-async function checkPendingStar() {
-  const { _pendingStar } = await chrome.storage.local.get('_pendingStar');
-  if (!_pendingStar) return;
-
-  // Only show if the star was created within the last 30 seconds
-  if (Date.now() - _pendingStar.time > 30000) {
-    await chrome.storage.local.remove('_pendingStar');
-    return;
-  }
-
-  await chrome.storage.local.remove('_pendingStar');
-  showAddToBookmarks(_pendingStar.url, _pendingStar.title);
 }
 
 // ─── Category rename ────────────────────────────────────────────────
