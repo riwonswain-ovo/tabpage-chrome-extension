@@ -31,7 +31,7 @@ async function renderBookmarks(filterText) {
       <div class="card drag-card" draggable="true" data-drag-type="category" data-cat-id="${c.id}">
         <div class="card-top">
           <span class="drag-handle" title="拖拽排序">${ICON_DRAG}</span>
-          <span class="card-name">${esc(c.name)}</span>
+          <span class="card-name editable" data-action="rename-cat" data-cat-id="${c.id}" title="点击修改名称">${esc(c.name)}</span>
           <span class="card-badge neutral">${c.items.length} 个书签</span>
         </div>
         <div class="chip-list" data-cat-id="${c.id}">
@@ -133,8 +133,9 @@ async function saveBookmarkAction(catId, name, url) {
   let finalUrl = url.trim();
   if (!finalUrl.startsWith('http')) finalUrl = 'https://' + finalUrl;
   await addBookmark(catId, name.trim(), finalUrl);
+  await setPref('lastUsedCategory', catId);
   await renderBookmarks(getSearchValue());
-  showToast('书签已添加');
+  showToast('书签已添加', false);
 }
 
 function getSearchValue() {

@@ -217,7 +217,11 @@ async function closeSingleTab(url) {
   playCloseSound();
   shootConfettiFromCard(url);
   await renderTabs();
-  showToast('标签已关闭');
+  setTabUndoAction(
+    () => restoreLastClosedTab(),
+    '标签已恢复'
+  );
+  showToast('标签已关闭', true);
 }
 
 async function closeDomainTabs(key) {
@@ -229,11 +233,16 @@ async function closeDomainTabs(key) {
       try { return baseDomain(new URL(t.url).hostname) === key; } catch { return false; }
     });
   }
+  const count = tabs.length;
   await chrome.tabs.remove(tabs.map(t => t.id));
   playCloseSound();
   shootConfetti();
   await renderTabs();
-  showToast(`已关闭 ${tabs.length} 个标签`);
+  setTabUndoAction(
+    () => restoreLastClosedTab(),
+    '标签已恢复'
+  );
+  showToast(`已关闭 ${count} 个标签`, true);
 }
 
 async function closeAllTabs() {
@@ -360,6 +369,30 @@ if (chrome && chrome.tabs) {
   chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     if (changeInfo.status === 'complete') scheduleTabsRender();
   });
+}
+
+// ─── Restore last closed tab ────────────────────────────────────────
+
+async function restoreLastClosedTab() {
+  // Try direct restore first
+  try {
+    return await chrome.sessions.restore();
+  } catch (_) {
+    // Fallback: find by recently closed list
+  }
+  const sessions = await chrome.sessions.getRecentlyClosed();
+  if (!sessions || sessions.length === 0) {
+    throw new Error('No recently closed tabs');
+  }
+  const session = sessions[0];
+  if (session.tab) {
+    return chrome.sessions.restore(session.tab.sessionId);
+  }
+  // Could be a window session
+  if (session.window) {
+    return chrome.sessions.restore(session.window.sessionId);
+  }
+  throw new Error('No restorable session');
 }
 
 // ─── Focus tab ──────────────────────────────────────────────────────

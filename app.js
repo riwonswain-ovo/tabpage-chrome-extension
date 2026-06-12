@@ -25,6 +25,9 @@ document.addEventListener('error', function(e) {
 
   // Init drag-and-drop
   initDragAndDrop();
+
+  // Check for pending star bookmark interception
+  await checkPendingStar();
 })();
 
 // ─── View switching ─────────────────────────────────────────────────
@@ -80,6 +83,10 @@ document.addEventListener('click', async (e) => {
   }
   if (action === 'add-category-empty') {
     showAddCategory();
+    return;
+  }
+  if (action === 'rename-cat') {
+    startRenameCategory(actionEl.dataset.catId);
     return;
   }
 
@@ -192,6 +199,16 @@ document.getElementById('btnSaveTabBm').addEventListener('click', saveTabToBookm
 // ── Toast undo button ──
 document.getElementById('toastUndo').addEventListener('click', undoLastDelete);
 
+// ── Footer restore tab button ──
+document.getElementById('btnRestoreTab').addEventListener('click', async () => {
+  try {
+    await restoreLastClosedTab();
+    showToast('标签已恢复', false);
+  } catch {
+    showToast('没有可恢复的标签', false);
+  }
+});
+
 // ── Modal helpers ──
 async function showAddBookmark(catId) {
   const { categories } = await getBookmarks();
@@ -230,10 +247,12 @@ function showAddCategory() {
 function closeModalBm() { document.getElementById('modalBm').classList.remove('show'); }
 function closeModalCat() { document.getElementById('modalCat').classList.remove('show'); }
 
-// ─── Delete undo management ─────────────────────────────────────────
+// ─── Delete & tab undo management ───────────────────────────────────
 
 let _lastDeleteSnapshot = null;
 let _undoTimer = null;
+let _tabUndoAction = null; // { action: fn, label: string }
+let _tabUndoTimer = null;
 
 async function saveDeleteSnapshot() {
   const { categories } = await getBookmarks();
@@ -244,12 +263,32 @@ async function saveDeleteSnapshot() {
 }
 
 async function undoLastDelete() {
+  // Check for tab undo first
+  if (_tabUndoAction) {
+    try {
+      await _tabUndoAction.action();
+      showToast(_tabUndoAction.label || '标签已恢复', false);
+    } catch {
+      showToast('无法恢复标签', false);
+    }
+    _tabUndoAction = null;
+    clearTimeout(_tabUndoTimer);
+    return;
+  }
+
   if (!_lastDeleteSnapshot) return;
   await saveBookmarks({ categories: _lastDeleteSnapshot });
   await renderBookmarks(getSearchValue ? getSearchValue() : '');
   _lastDeleteSnapshot = null;
   clearTimeout(_undoTimer);
   showToast('已恢复', false);
+}
+
+// Called from tabs.js to register a tab undo action
+function setTabUndoAction(actionFn, label) {
+  _tabUndoAction = { action: actionFn, label };
+  clearTimeout(_tabUndoTimer);
+  _tabUndoTimer = setTimeout(() => { _tabUndoAction = null; }, 5000);
 }
 
 // ─── Toast ──────────────────────────────────────────────────────────
@@ -269,6 +308,71 @@ function showToast(msg, showUndo = false) {
   el.classList.add('show');
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ─── Star interception ──────────────────────────────────────────────
+
+async function checkPendingStar() {
+  const { _pendingStar } = await chrome.storage.local.get('_pendingStar');
+  if (!_pendingStar) return;
+
+  // Only show if the star was created within the last 30 seconds
+  if (Date.now() - _pendingStar.time > 30000) {
+    await chrome.storage.local.remove('_pendingStar');
+    return;
+  }
+
+  await chrome.storage.local.remove('_pendingStar');
+  showAddToBookmarks(_pendingStar.url, _pendingStar.title);
+}
+
+// ─── Category rename ────────────────────────────────────────────────
+
+function startRenameCategory(catId) {
+  const nameSpan = document.querySelector(`.card-name[data-cat-id="${catId}"]`);
+  if (!nameSpan) return;
+  const oldName = nameSpan.textContent;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'cat-rename-input';
+  input.value = oldName;
+  input.style.cssText = 'font-weight:600;font-size:15px;color:var(--ink);border:1px solid var(--accent-amber);border-radius:4px;padding:2px 6px;width:160px;font-family:inherit;';
+
+  nameSpan.replaceWith(input);
+  input.focus();
+  input.select();
+
+  async function save() {
+    const newName = input.value.trim();
+    if (newName && newName !== oldName) {
+      await renameCategory(catId, newName);
+      await renderBookmarks(getSearchValue ? getSearchValue() : '');
+      showToast('分类已重命名');
+    } else if (!newName) {
+      // Empty name — restore original, don't save
+      await renderBookmarks(getSearchValue ? getSearchValue() : '');
+    } else {
+      // Same name — restore original display
+      const span = document.createElement('span');
+      span.className = 'card-name';
+      span.dataset.catId = catId;
+      span.textContent = oldName;
+      input.replaceWith(span);
+    }
+  }
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); save(); }
+    if (e.key === 'Escape') {
+      const span = document.createElement('span');
+      span.className = 'card-name';
+      span.dataset.catId = catId;
+      span.textContent = oldName;
+      input.replaceWith(span);
+    }
+  });
+  input.addEventListener('blur', save);
 }
 
 // ─── Keyboard shortcuts ─────────────────────────────────────────────

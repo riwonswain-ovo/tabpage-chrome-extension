@@ -31,6 +31,31 @@ async function updateBadge() {
   }
 }
 
+// ─── Star bookmark interception ──────────────────────────────────────
+
+let _lastStarTime = 0;
+
+chrome.bookmarks.onCreated.addListener(async (id, bookmark) => {
+  // Skip folders and bookmark bar items
+  if (!bookmark.url) return;
+
+  // 500ms debounce
+  const now = Date.now();
+  if (now - _lastStarTime < 500) return;
+  _lastStarTime = now;
+
+  try {
+    // Store pending star info for the new tab page to pick up
+    const pending = { url: bookmark.url, title: bookmark.title, time: now };
+    await chrome.storage.local.set({ _pendingStar: pending });
+
+    // Delete the native bookmark
+    await chrome.bookmarks.remove(id);
+  } catch {
+    // Silent fail — the native bookmark stays, star panel won't show
+  }
+});
+
 // ─── Event listeners ─────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(() => updateBadge());

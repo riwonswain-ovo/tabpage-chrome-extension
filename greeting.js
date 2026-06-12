@@ -47,11 +47,20 @@ async function updateHeader() {
   const { userName } = await getPrefs();
   const hour = new Date().getHours();
   const name = userName || '';
-  document.getElementById('greetingTxt').textContent = name
-    ? getGreeting() + '，' + name + '。'
-    : getGreeting() + '。';
+  const el = document.getElementById('greetingTxt');
+
+  if (name) {
+    el.innerHTML = `${getGreeting()}，<span class="greeting-name">${escHtml(name)}</span>。`;
+  } else {
+    el.innerHTML = `${getGreeting()}。<br><span class="name-placeholder">点击添加你的名字</span>`;
+  }
+
   document.getElementById('dateTxt').textContent = getDateDisplay();
   document.getElementById('subTxt').textContent = getRandomSubtitle(hour);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 }
 
 async function setUserName(name) {

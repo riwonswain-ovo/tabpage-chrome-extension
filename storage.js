@@ -77,6 +77,13 @@ async function deleteBookmark(catId, bmId) {
   });
 }
 
+async function renameCategory(catId, newName) {
+  return saveData(d => {
+    const cat = d.bookmarks.categories.find(c => c.id === catId);
+    if (cat) cat.name = newName;
+  });
+}
+
 async function reorderCategories(categories) {
   return saveBookmarks({ categories: categories.map((c, i) => ({ ...c, order: i })) });
 }

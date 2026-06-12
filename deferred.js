@@ -135,8 +135,16 @@ async function showAddToBookmarks(url, title) {
     suggestEl.style.display = 'none';
   }
 
+  // Default category: suggestion first, then lastUsedCategory, then first category
+  const prefs = await getPrefs();
+  const defaultCatId = suggestion
+    ? suggestion.catId
+    : (prefs.lastUsedCategory && categories.some(c => c.id === prefs.lastUsedCategory)
+      ? prefs.lastUsedCategory
+      : (categories.length > 0 ? categories[0].id : null));
+
   document.getElementById('tabBmCat').innerHTML = categories.map(c =>
-    `<option value="${c.id}"${suggestion && c.id === suggestion.catId ? ' selected' : ''}>${esc(c.name)}</option>`
+    `<option value="${c.id}"${defaultCatId && c.id === defaultCatId ? ' selected' : ''}>${esc(c.name)}</option>`
   ).join('');
   document.getElementById('modalTabBm').classList.add('show');
 }
@@ -145,8 +153,9 @@ async function saveTabToBookmarkAction() {
   const catId = document.getElementById('tabBmCat').value;
   if (catId && pendingTabUrl) {
     await addBookmark(catId, pendingTabTitle, pendingTabUrl);
+    await setPref('lastUsedCategory', catId);
     await renderBookmarks(getSearchValue ? getSearchValue() : '');
-    showToast('已添加到分类');
+    showToast('已添加到分类', false);
   }
   document.getElementById('modalTabBm').classList.remove('show');
 }
