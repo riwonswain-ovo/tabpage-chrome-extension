@@ -3,6 +3,10 @@
 // ─── Storage helpers ───────────────────────────────────────────────
 
 const STORAGE_KEY = 'tabout_data';
+const SYNC_CHUNK_COUNT_KEY = 'tabout_data_chunks';
+const SYNC_CHUNK_PREFIX = 'tabout_c_';
+const MAX_CHUNK = 7000; // bytes, under 8192 per-item limit
+
 const DEFAULT_DATA = {
   version: 2,
   bookmarks: { categories: [] },
@@ -18,30 +22,77 @@ function normalize(data) {
   return merged;
 }
 
+// ── Sync chunked read/write ─────────────────────────────────────────
+
+async function readSyncChunked() {
+  const { [SYNC_CHUNK_COUNT_KEY]: count } = await chrome.storage.sync.get(SYNC_CHUNK_COUNT_KEY);
+  if (!count) return null;
+
+  const keys = [];
+  for (let i = 0; i < count; i++) keys.push(SYNC_CHUNK_PREFIX + i);
+  const result = await chrome.storage.sync.get(keys);
+
+  let json = '';
+  for (let i = 0; i < count; i++) {
+    const chunk = result[SYNC_CHUNK_PREFIX + i];
+    if (!chunk) return null; // corrupted
+    json += chunk;
+  }
+  try { return JSON.parse(json); } catch { return null; }
+}
+
+async function writeSyncChunked(data) {
+  const json = JSON.stringify(data);
+  const total = Math.ceil(json.length / MAX_CHUNK);
+
+  // Get old chunk count for cleanup
+  const { [SYNC_CHUNK_COUNT_KEY]: oldCount } = await chrome.storage.sync.get(SYNC_CHUNK_COUNT_KEY);
+  const prev = oldCount || 0;
+
+  // Write new chunks
+  const setObj = { [SYNC_CHUNK_COUNT_KEY]: total };
+  for (let i = 0; i < total; i++) {
+    setObj[SYNC_CHUNK_PREFIX + i] = json.substring(i * MAX_CHUNK, (i + 1) * MAX_CHUNK);
+  }
+  await chrome.storage.sync.set(setObj);
+
+  // Clean up excess old chunks (if data shrunk)
+  if (total < prev) {
+    const removeKeys = [];
+    for (let i = total; i < prev; i++) removeKeys.push(SYNC_CHUNK_PREFIX + i);
+    if (removeKeys.length > 0) await chrome.storage.sync.remove(removeKeys);
+  }
+}
+
+// ── Main load / save ────────────────────────────────────────────────
+
 async function loadData() {
-  const [localResult, syncResult] = await Promise.all([
-    chrome.storage.local.get(STORAGE_KEY),
-    chrome.storage.sync.get(STORAGE_KEY)
-  ]);
-
-  const localData = localResult[STORAGE_KEY];
-  const syncData = syncResult[STORAGE_KEY];
-
-  // Local is the primary source (fast, always current)
+  // 1. Local first (fast, always current)
+  const { [STORAGE_KEY]: localData } = await chrome.storage.local.get(STORAGE_KEY);
   if (localData) {
     const data = normalize(localData);
-    // Keep sync copy up to date (best-effort, may fail on quota)
-    if (!syncData || JSON.stringify(localData) !== JSON.stringify(syncData)) {
-      chrome.storage.sync.set({ [STORAGE_KEY]: data }).catch(() => {});
-    }
+    // Keep sync copy up to date in background
+    syncToChunkedBg(data);
     return data;
   }
 
-  // Local empty — reinstall scenario, restore from sync (Google account)
+  // 2. Local empty — reinstall. Try chunked sync first
+  const chunked = await readSyncChunked();
+  if (chunked) {
+    const data = normalize(chunked);
+    await chrome.storage.local.set({ [STORAGE_KEY]: data });
+    return data;
+  }
+
+  // 3. Fallback: old single-key sync (migration from before chunking)
+  const { [STORAGE_KEY]: syncData } = await chrome.storage.sync.get(STORAGE_KEY);
   if (syncData) {
     const data = normalize(syncData);
-    // Restore local cache
     await chrome.storage.local.set({ [STORAGE_KEY]: data });
+    // Migrate to chunked format
+    syncToChunkedBg(data);
+    // Remove old single key
+    chrome.storage.sync.remove(STORAGE_KEY).catch(() => {});
     return data;
   }
 
@@ -51,14 +102,21 @@ async function loadData() {
 async function saveData(updateFn) {
   const data = await loadData();
   updateFn(data);
-  // Write to both: local for speed, sync for cross-device + reinstall survival
-  await Promise.all([
-    chrome.storage.local.set({ [STORAGE_KEY]: data }),
-    chrome.storage.sync.set({ [STORAGE_KEY]: data }).catch(() => {
-      // Sync may fail if quota exceeded (>100KB). Local still works.
-    })
-  ]);
+
+  // Local: full data under single key
+  await chrome.storage.local.set({ [STORAGE_KEY]: data });
+
+  // Sync: chunked to stay under 8KB per-item limit
+  writeSyncChunked(data).catch(() => {
+    // Sync may fail (quota, etc.). Local still works.
+  });
+
   return data;
+}
+
+// Best-effort background sync — don't block the caller
+function syncToChunkedBg(data) {
+  writeSyncChunked(data).catch(() => {});
 }
 
 // ─── Bookmarks ──────────────────────────────────────────────────────

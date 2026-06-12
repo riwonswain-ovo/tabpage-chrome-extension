@@ -25,10 +25,6 @@ async function renderDeferred() {
 
   const { active, archived } = await getDeferred();
 
-  if (active.length === 0 && archived.length === 0) {
-    col.style.display = 'none';
-    return;
-  }
   col.style.display = 'block';
 
   if (active.length > 0) {
@@ -74,7 +70,9 @@ async function renderDeferred() {
         </div>`).join('')
       : '<div class="archive-item" style="color:var(--muted);">没有匹配的结果。</div>';
   } else {
-    archWrap.style.display = 'none';
+    archWrap.style.display = 'block';
+    archCount.textContent = '(0)';
+    archList.innerHTML = '<div class="archive-item" style="color:var(--muted);">完成待读后会自动归档到这里。</div>';
   }
 }
 
