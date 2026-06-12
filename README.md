@@ -63,22 +63,23 @@ TabPage 是在 [Tab Out](https://github.com/zarazhangrui/tab-out)（作者：张
 
 ## 安装方法
 
-### 方法一：从源码加载（推荐）
+### 方式 A：让 Coding Agent 帮你装（零操作）
 
-1. 点击本页面右上角绿色 **Code** 按钮 → **Download ZIP**，解压到本地
+如果你在用 **Claude Code**、**Cursor**、**ChatGPT** 等 AI 编程工具，直接把下面这段话发给它：
+
+> 帮我安装 TabPage 这个 Chrome 扩展。仓库地址是 https://github.com/riwonswain-ovo/tabpage-chrome-extension ，Clone 下来后，在 Chrome 浏览器打开 chrome://extensions，开启开发者模式，加载 extension 文件夹即可。
+
+Agent 会自动完成下载和加载，你只需要确认。
+
+### 方式 B：自己手动安装
+
+1. 点击本页面右上角绿色 **Code** 按钮 → **Download ZIP**，解压到本地  
+   （或用 `git clone https://github.com/riwonswain-ovo/tabpage-chrome-extension.git`）
 2. 打开 Chrome 浏览器，地址栏输入 `chrome://extensions` 并回车
 3. 打开右上角**开发者模式**开关
 4. 点击左上角**加载已解压的扩展程序**
 5. 选择解压后的 `extension` 文件夹
 6. 完成！打开新标签页即可看到 TabPage
-
-### 方法二：Git 克隆
-
-```bash
-git clone https://github.com/riwonswain-ovo/tabpage-chrome-extension.git
-```
-
-然后按照方法一的第 2–6 步操作。
 
 ### 更新扩展
 
