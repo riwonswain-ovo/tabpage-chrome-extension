@@ -154,6 +154,37 @@ header {
   pointer-events: none;
 }
 
+/* Drag-and-drop */
+.drag-card { cursor: grab; }
+.drag-card.dragging { opacity: 0.4; cursor: grabbing; }
+.drag-card.drag-over {
+  outline: 2px dashed var(--accent-amber);
+  outline-offset: -2px;
+}
+.drag-card.drag-insert-above {
+  border-top: 2px solid var(--accent-amber);
+}
+.drag-card.drag-insert-below {
+  border-bottom: 2px solid var(--accent-amber);
+}
+.drag-handle {
+  display: inline-flex; align-items: center;
+  margin-right: 4px; cursor: grab; flex-shrink: 0;
+}
+.chip-drag {
+  opacity: 0; transition: opacity 0.15s;
+}
+.drag-chip:hover .chip-drag { opacity: 1; }
+.drag-chip.dragging {
+  opacity: 0.3; cursor: grabbing;
+}
+.drag-chip.drag-insert-above {
+  border-top: 2px solid var(--accent-amber);
+}
+.drag-chip.drag-insert-below {
+  border-bottom: 2px solid var(--accent-amber);
+}
+
 .card-top {
   display: flex; align-items: center;
   gap: 10px; margin-bottom: 6px;
@@ -373,6 +404,15 @@ header {
 .archive-toggle.open .archive-chevron { transform: rotate(180deg); }
 .archive-count { font-size: 11px; color: var(--muted); opacity: 0.7; }
 .archive-body { padding-top: 12px; }
+.archive-search {
+  width: 100%; padding: 6px 10px; margin-bottom: 10px;
+  font-family: 'DM Sans', sans-serif; font-size: 11px;
+  color: var(--ink); background: var(--paper);
+  border: 1px solid var(--warm-gray); border-radius: 6px;
+  outline: none; transition: border-color 0.15s;
+}
+.archive-search:focus { border-color: var(--muted); }
+.archive-search::placeholder { color: var(--muted); opacity: 0.6; }
 .archive-item {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 0;

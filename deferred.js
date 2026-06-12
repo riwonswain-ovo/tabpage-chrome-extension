@@ -57,10 +57,22 @@ async function renderDeferred() {
   if (archived.length > 0) {
     archWrap.style.display = 'block';
     archCount.textContent = `(${archived.length})`;
-    archList.innerHTML = archived.map(d => `<div class="archive-item">
-      <a href="${esc(d.url)}" target="_blank">${esc(d.title)}</a>
-      <span class="when">${timeAgo(d.completedAt || d.savedAt)}</span>
-    </div>`).join('');
+
+    const archSearch = document.getElementById('archiveSearch');
+    const q = archSearch ? archSearch.value.toLowerCase().trim() : '';
+
+    const filtered = q
+      ? archived.filter(d =>
+          d.title.toLowerCase().includes(q) ||
+          (() => { try { return new URL(d.url).hostname; } catch { return ''; } })().includes(q))
+      : archived;
+
+    archList.innerHTML = filtered.length > 0
+      ? filtered.map(d => `<div class="archive-item">
+          <a href="${esc(d.url)}" target="_blank">${esc(d.title)}</a>
+          <span class="when">${timeAgo(d.completedAt || d.savedAt)}</span>
+        </div>`).join('')
+      : '<div class="archive-item" style="color:var(--muted);">没有匹配的结果。</div>';
   } else {
     archWrap.style.display = 'none';
   }

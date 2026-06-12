@@ -24,6 +24,9 @@ document.addEventListener('error', function(e) {
   await renderBookmarks();
   await renderTabs();
   await renderDeferred();
+
+  // Init drag-and-drop
+  initDragAndDrop();
 })();
 
 // ─── View switching ─────────────────────────────────────────────────
@@ -143,6 +146,14 @@ document.getElementById('archiveToggle').addEventListener('click', toggleArchive
 document.getElementById('searchInput').addEventListener('input', function () {
   renderBookmarks(this.value);
 });
+
+// ── Archive search ──
+const archSearchEl = document.getElementById('archiveSearch');
+if (archSearchEl) {
+  archSearchEl.addEventListener('input', function () {
+    renderDeferred();
+  });
+}
 
 // ── Modal: Add bookmark ──
 document.getElementById('btnNewCat').addEventListener('click', showAddCategory);
